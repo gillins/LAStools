@@ -62,6 +62,7 @@ typedef unordered_map<I32,U32> my_cell_hash;
 #else
 #include <hash_map>
 using namespace std;
+using namespace stdext; /* For VS 2008 */
 typedef hash_map<I32,U32> my_cell_hash;
 #endif
 
