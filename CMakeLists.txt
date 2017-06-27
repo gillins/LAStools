@@ -45,6 +45,7 @@ set (LAZ_SRC LASzip/src/laszip.cpp
 
 add_library (las SHARED ${LAS_SRC} ${LAZ_SRC})
 target_include_directories (las PUBLIC LASlib/inc LASzip/src)
+# the LASLIB_DLL macro doesn't actually export exverything required
 set_target_properties(las PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
