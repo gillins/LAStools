@@ -53,17 +53,24 @@
 #     define UNORDERED_FOUND
 #    endif
 #  endif
-#  ifndef UNORDERED_FOUND
+#  ifdef HAVE_UNORDERED_MAP
+#     include <unordered_map>
+      using namespace std;
+#  elif defined(UNORDERED_FOUND)
 #    include <tr1/unordered_map>
     using namespace std;
     using namespace tr1;
-#   endif
+#  endif
 typedef unordered_map<I32,U32> my_cell_hash;
-#else
+#elif defined(LZ_WIN32_VC6)
 #include <hash_map>
 using namespace std;
 using namespace stdext; /* For VS 2008 */
 typedef hash_map<I32,U32> my_cell_hash;
+#else
+#include <unordered_map>
+using namespace std;
+typedef unordered_map<I32, U32> my_cell_hash;
 #endif
 
 LASindex::LASindex()

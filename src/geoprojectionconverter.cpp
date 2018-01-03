@@ -892,6 +892,9 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
       case 4619: // GCS_SWEREF99
         gcs_code = GEO_GCS_SWEREF99;
         break;
+      case 4167: // GCS_NZGD2000
+        gcs_code = GEO_GCS_NZGD2000;
+        break;
       case 4001: // GCSE_Airy1830
         ellipsoid = GEO_ELLIPSOID_AIRY;
         break;
@@ -972,8 +975,11 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
       case 6019: // DatumE_GRS1980
         ellipsoid = GEO_ELLIPSOID_GRS1980;
         break;
-      case 6619: // Datum_SWEREF99
+      case 6167: // Datum_SWEREF99
         datum_code = GEO_GCS_SWEREF99;
+        break;
+      case 6619: // Datum_NZGD2000
+        datum_code = GEO_GCS_NZGD2000;
         break;
       case 6202: // Datum_Australian_Geodetic_Datum_1966
       case 6203: // Datum_Australian_Geodetic_Datum_1984
@@ -1061,6 +1067,9 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
       case 11: // CT_AlbersEqualArea
         user_defined_projection = 11;
         break;
+      case 16: // CT_ObliqueStereographic
+        user_defined_projection = 16;
+        break;
       case 2: // CT_TransvMercator_Modified_Alaska
         fprintf(stderr, "ProjCoordTransGeoKey: CT_TransvMercator_Modified_Alaska not implemented\n");
         break;
@@ -1096,9 +1105,6 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
         break;
       case 15: // CT_PolarStereographic
         fprintf(stderr, "ProjCoordTransGeoKey: CT_PolarStereographic not implemented\n");
-        break;
-      case 16: // CT_ObliqueStereographic
-        fprintf(stderr, "ProjCoordTransGeoKey: CT_ObliqueStereographic not implemented\n");
         break;
       case 17: // CT_Equirectangular
         fprintf(stderr, "ProjCoordTransGeoKey: CT_Equirectangular not implemented\n");
@@ -1201,14 +1207,16 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
       if ((offsetProjFalseEastingGeoKey >= 0) &&
           (offsetProjFalseNorthingGeoKey >= 0) &&
           (offsetProjNatOriginLatGeoKey >= 0) &&
-          (offsetProjCenterLongGeoKey >= 0) &&
+          ((offsetProjCenterLongGeoKey >= 0) || (offsetProjNatOriginLongGeoKey >= 0)) &&
+          (offsetProjStdParallel1GeoKey >= 0) &&
           (offsetProjStdParallel1GeoKey >= 0) &&
           (offsetProjStdParallel2GeoKey >= 0))
       {
         double falseEastingMeter = geo_double_params[offsetProjFalseEastingGeoKey] * coordinates2meter;
         double falseNorthingMeter = geo_double_params[offsetProjFalseNorthingGeoKey] * coordinates2meter;
         double latOriginDeg = geo_double_params[offsetProjNatOriginLatGeoKey];
-        double longOriginDeg = geo_double_params[offsetProjCenterLongGeoKey];
+        double longOriginDeg = ((offsetProjCenterLongGeoKey >= 0) ? geo_double_params[offsetProjCenterLongGeoKey] : geo_double_params[offsetProjNatOriginLongGeoKey]);
+        if ((longOriginDeg == 0.0) && (offsetProjNatOriginLongGeoKey >= 0)) longOriginDeg = geo_double_params[offsetProjNatOriginLongGeoKey];
         double firstStdParallelDeg = geo_double_params[offsetProjStdParallel1GeoKey];
         double secondStdParallelDeg = geo_double_params[offsetProjStdParallel2GeoKey];
         set_lambert_conformal_conic_projection(falseEastingMeter, falseNorthingMeter, latOriginDeg, longOriginDeg, firstStdParallelDeg, secondStdParallelDeg);
@@ -1232,12 +1240,34 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, GeoP
         double falseNorthingMeter = geo_double_params[offsetProjFalseNorthingGeoKey] * coordinates2meter;
         double latOriginDeg = geo_double_params[offsetProjNatOriginLatGeoKey];
         double longOriginDeg = ((offsetProjCenterLongGeoKey >= 0) ? geo_double_params[offsetProjCenterLongGeoKey] : geo_double_params[offsetProjNatOriginLongGeoKey]);
+        if ((longOriginDeg == 0.0) && (offsetProjNatOriginLongGeoKey >= 0)) longOriginDeg = geo_double_params[offsetProjNatOriginLongGeoKey];
         double firstStdParallelDeg = geo_double_params[offsetProjStdParallel1GeoKey];
         double secondStdParallelDeg = geo_double_params[offsetProjStdParallel2GeoKey];
         set_albers_equal_area_conic_projection(falseEastingMeter, falseNorthingMeter, latOriginDeg, longOriginDeg, firstStdParallelDeg, secondStdParallelDeg);
         if (description)
         {
           sprintf(description, "generic albers equal area");
+        }
+        has_projection = true;
+      }
+    }
+    else if (user_defined_projection == 16)
+    {
+      if ((offsetProjFalseEastingGeoKey >= 0) &&
+          (offsetProjFalseNorthingGeoKey >= 0) &&
+          (offsetProjNatOriginLatGeoKey >= 0) &&
+          ((offsetProjCenterLongGeoKey >= 0) || (offsetProjNatOriginLongGeoKey >= 0)) &&
+          (offsetProjScaleAtNatOriginGeoKey >= 0))
+      {
+        double falseEastingMeter = geo_double_params[offsetProjFalseEastingGeoKey] * coordinates2meter;
+        double falseNorthingMeter = geo_double_params[offsetProjFalseNorthingGeoKey] * coordinates2meter;
+        double latOriginDeg = geo_double_params[offsetProjNatOriginLatGeoKey];
+        double longMeridianDeg = ((offsetProjCenterLongGeoKey >= 0) ? geo_double_params[offsetProjCenterLongGeoKey] : geo_double_params[offsetProjNatOriginLongGeoKey]);
+        double scaleFactor = geo_double_params[offsetProjScaleAtNatOriginGeoKey];
+        set_oblique_stereographic_projection(falseEastingMeter, falseNorthingMeter, latOriginDeg, longMeridianDeg, scaleFactor);
+        if (description)
+        {
+          sprintf(description, "generic oblique stereographic");
         }
         has_projection = true;
       }
@@ -2174,7 +2204,7 @@ bool GeoProjectionConverter::get_ogc_wkt_from_projection(int& len, char** ogc_wk
           epsg_name = get_epsg_name_from_pcs_file(argv_zero, projection->geokey);
         }
         // maybe output a compound CRS
-        if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
+        if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_EVRF2007) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
         {
           n += sprintf(&string[n], "COMPD_CS[\"%s + ", (epsg_name ? epsg_name : projection->name));
 
@@ -2224,6 +2254,10 @@ bool GeoProjectionConverter::get_ogc_wkt_from_projection(int& len, char** ogc_wk
           else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
           {
             n += sprintf(&string[n], "CGVD2013");
+          }
+          else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
+          {
+            n += sprintf(&string[n], "EVRF2007");
           }
           else if (vertical_geokey == GEO_VERTICAL_CGVD28)
           {
@@ -2435,141 +2469,152 @@ bool GeoProjectionConverter::get_ogc_wkt_from_projection(int& len, char** ogc_wk
           n += sprintf(&string[n], "]");
         }
       }
-    }
-    if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
-    {
-      if (vertical_geokey == GEO_VERTICAL_NAVD88)
+      if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_EVRF2007) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
       {
-        n += sprintf(&string[n], "VERT_CS[\"NAVD88");
-        if (vertical_geoid)
+        // comma for compound CRS
+        n += sprintf(&string[n], ",");
+        // add VERT_CS info
+        if (vertical_geokey == GEO_VERTICAL_NAVD88)
         {
-          if (vertical_geoid == GEO_VERTICAL_NAVD88_GEOID12B) 
+          n += sprintf(&string[n], "VERT_CS[\"NAVD88");
+          if (vertical_geoid)
           {
-            n += sprintf(&string[n], " height - Geoid12B");
+            if (vertical_geoid == GEO_VERTICAL_NAVD88_GEOID12B) 
+            {
+              n += sprintf(&string[n], " height - Geoid12B");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID12A)
+            {
+              n += sprintf(&string[n], " height - Geoid12A");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID12)
+            {
+              n += sprintf(&string[n], " height - Geoid12");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID09)
+            {
+              n += sprintf(&string[n], " height - Geoid09");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID06)
+            {
+              n += sprintf(&string[n], " height - Geoid06");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID03)
+            {
+              n += sprintf(&string[n], " height - Geoid03");
+            }
+            else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID99)
+            {
+              n += sprintf(&string[n], " height - Geoid99");
+            }
+            else if (vertical_geoid == GEO_VERTICAL_NAVD88_GEOID96)
+            {
+              n += sprintf(&string[n], " height - Geoid96");
+            }
           }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID12A)
-          {
-            n += sprintf(&string[n], " height - Geoid12A");
-          }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID12)
-          {
-            n += sprintf(&string[n], " height - Geoid12");
-          }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID09)
-          {
-            n += sprintf(&string[n], " height - Geoid09");
-          }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID06)
-          {
-            n += sprintf(&string[n], " height - Geoid06");
-          }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID03)
-          {
-            n += sprintf(&string[n], " height - Geoid03");
-          }
-          else if (vertical_geoid ==  GEO_VERTICAL_NAVD88_GEOID99)
-          {
-            n += sprintf(&string[n], " height - Geoid99");
-          }
-          else if (vertical_geoid == GEO_VERTICAL_NAVD88_GEOID96)
-          {
-            n += sprintf(&string[n], " height - Geoid96");
-          }
+          n += sprintf(&string[n], "\",VERT_DATUM[\"North American Vertical Datum 1988\",2005,AUTHORITY[\"EPSG\",\"5103\"]],");
         }
-        n += sprintf(&string[n], "\",VERT_DATUM[\"North American Vertical Datum 1988\",2005,AUTHORITY[\"EPSG\",\"5103\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NGVD29)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"NGVD29\",VERT_DATUM[\"National Geodetic Vertical Datum 1929\",2005,AUTHORITY[\"EPSG\",\"5102\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"CGVD2013\",VERT_DATUM[\"Canadian Geodetic Vertical Datum of 2013\",2005,AUTHORITY[\"EPSG\",\"1127\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_CGVD28)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"CGVD28\",VERT_DATUM[\"Canadian Geodetic Vertical Datum of 1928\",2005,AUTHORITY[\"EPSG\",\"5114\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_DVR90)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"DVR90\",VERT_DATUM[\"Dansk Vertikal Reference 1990\",2005,AUTHORITY[\"EPSG\",\"5206\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NN2000)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"NN2000\",VERT_DATUM[\"Norway Normal Null 2000\",2005,AUTHORITY[\"EPSG\",\"1096\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NN54)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"NN54\",VERT_DATUM[\"Norway Normal Null 1954\",2005,AUTHORITY[\"EPSG\",\"5174\"]],");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_DHHN92)
-      {
-        n += sprintf(&string[n], "VERT_CS[\"DHHN92\",VERT_DATUM[\"Deutsches Haupthoehennetz 1992\",2005,AUTHORITY[\"EPSG\",\"5783\"]],");
-      }
-      if (source)
-      {
-        if (elevation2meter == 1.0)
+        else if (vertical_geokey == GEO_VERTICAL_NGVD29)
         {
-          n += sprintf(&string[n], "UNIT[\"metre\",1.0,AUTHORITY[\"EPSG\",\"9001\"]]");
+          n += sprintf(&string[n], "VERT_CS[\"NGVD29\",VERT_DATUM[\"National Geodetic Vertical Datum 1929\",2005,AUTHORITY[\"EPSG\",\"5102\"]],");
         }
-        else if (elevation2meter == 0.3048)
+        else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
         {
-          n += sprintf(&string[n], "UNIT[\"foot\",0.3048,AUTHORITY[\"EPSG\",\"9002\"]]");
+          n += sprintf(&string[n], "VERT_CS[\"CGVD2013\",VERT_DATUM[\"Canadian Geodetic Vertical Datum of 2013\",2005,AUTHORITY[\"EPSG\",\"1127\"]],");
         }
-        else
+        else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
         {
-          n += sprintf(&string[n], "UNIT[\"US survey foot\",0.3048006096012192,AUTHORITY[\"EPSG\",\"9003\"]],");
+          n += sprintf(&string[n], "VERT_CS[\"EVRF2007\",VERT_DATUM[\"European Vertical Reference Frame 2007\",2005,AUTHORITY[\"EPSG\",\"5215\"]],");
         }
-      }
-      else
-      {
-        if (meter2elevation == 1.0)
+        else if (vertical_geokey == GEO_VERTICAL_CGVD28)
         {
-          n += sprintf(&string[n], "UNIT[\"metre\",1.0,AUTHORITY[\"EPSG\",\"9001\"]]");
+          n += sprintf(&string[n], "VERT_CS[\"CGVD28\",VERT_DATUM[\"Canadian Geodetic Vertical Datum of 1928\",2005,AUTHORITY[\"EPSG\",\"5114\"]],");
         }
-        else if (meter2elevation == 0.3048)
+        else if (vertical_geokey == GEO_VERTICAL_DVR90)
         {
-          n += sprintf(&string[n], "UNIT[\"foot\",0.3048,AUTHORITY[\"EPSG\",\"9002\"]]");
+          n += sprintf(&string[n], "VERT_CS[\"DVR90\",VERT_DATUM[\"Dansk Vertikal Reference 1990\",2005,AUTHORITY[\"EPSG\",\"5206\"]],");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_NN2000)
+        {
+          n += sprintf(&string[n], "VERT_CS[\"NN2000\",VERT_DATUM[\"Norway Normal Null 2000\",2005,AUTHORITY[\"EPSG\",\"1096\"]],");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_NN54)
+        {
+          n += sprintf(&string[n], "VERT_CS[\"NN54\",VERT_DATUM[\"Norway Normal Null 1954\",2005,AUTHORITY[\"EPSG\",\"5174\"]],");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_DHHN92)
+        {
+          n += sprintf(&string[n], "VERT_CS[\"DHHN92\",VERT_DATUM[\"Deutsches Haupthoehennetz 1992\",2005,AUTHORITY[\"EPSG\",\"5783\"]],");
+        }
+        if (source)
+        {
+          if (elevation2meter == 1.0)
+          {
+            n += sprintf(&string[n], "UNIT[\"metre\",1.0,AUTHORITY[\"EPSG\",\"9001\"]],");
+          }
+          else if (elevation2meter == 0.3048)
+          {
+            n += sprintf(&string[n], "UNIT[\"foot\",0.3048,AUTHORITY[\"EPSG\",\"9002\"]],");
+          }
+          else
+          {
+            n += sprintf(&string[n], "UNIT[\"US survey foot\",0.3048006096012192,AUTHORITY[\"EPSG\",\"9003\"]],");
+          }
         }
         else
         {
-          n += sprintf(&string[n], "UNIT[\"US survey foot\",0.3048006096012192,AUTHORITY[\"EPSG\",\"9003\"]],");
+          if (meter2elevation == 1.0)
+          {
+            n += sprintf(&string[n], "UNIT[\"metre\",1.0,AUTHORITY[\"EPSG\",\"9001\"]],");
+          }
+          else if (meter2elevation == 0.3048)
+          {
+            n += sprintf(&string[n], "UNIT[\"foot\",0.3048,AUTHORITY[\"EPSG\",\"9002\"]],");
+          }
+          else
+          {
+            n += sprintf(&string[n], "UNIT[\"US survey foot\",0.3048006096012192,AUTHORITY[\"EPSG\",\"9003\"]],");
+          }
         }
+        if (vertical_geokey == GEO_VERTICAL_NAVD88)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"%d\"]]", ((source && (elevation2meter == 1.0)) || (!source && (meter2elevation == 1.0)) ? 5703 : 6360));
+        }
+        else if (vertical_geokey == GEO_VERTICAL_NGVD29)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5702\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"6647\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5621\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_CGVD28)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5713\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_DVR90)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5799\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_NN2000)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5941\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_NN54)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5776\"]]");
+        }
+        else if (vertical_geokey == GEO_VERTICAL_DHHN92)
+        {
+          n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5783\"]]");
+        }
+        // close bracket for compound CRS
+        n += sprintf(&string[n], "]");
       }
-      if (vertical_geokey == GEO_VERTICAL_NAVD88)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"%d\"]]", ((source && (elevation2meter == 1.0)) || (!source && (meter2elevation == 1.0)) ? 5703 : 6360));
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NGVD29)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5702\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"6647\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_CGVD28)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5713\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_DVR90)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5799\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NN2000)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5941\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_NN54)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5776\"]]");
-      }
-      else if (vertical_geokey == GEO_VERTICAL_DHHN92)
-      {
-        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5783\"]]");
-      }
-      // close bracket for compound CRS
-      n += sprintf(&string[n], "]");
     }
     len = n+1;
     *ogc_wkt = string;
@@ -2832,7 +2877,7 @@ bool GeoProjectionConverter::get_prj_from_projection(int& len, char** prj, bool 
         n += sprintf(&string[n], "]");
       }
     }
-    if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
+    if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_EVRF2007) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) )
     {
       if (vertical_geokey == GEO_VERTICAL_NAVD88)
       {
@@ -2845,6 +2890,10 @@ bool GeoProjectionConverter::get_prj_from_projection(int& len, char** prj, bool 
       else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
       {
         n += sprintf(&string[n], "VERT_CS[\"CGVD2013\",VERT_DATUM[\"Canadian Geodetic Vertical Datum of 2013\",2005,AUTHORITY[\"EPSG\",\"1127\"]],");
+      }
+      else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
+      {
+        n += sprintf(&string[n], "VERT_CS[\"EVRF2007\",VERT_DATUM[\"European Vertical Reference Frame 2007\",2005,AUTHORITY[\"EPSG\",\"5215\"]],");
       }
       else if (vertical_geokey == GEO_VERTICAL_CGVD28)
       {
@@ -2870,11 +2919,11 @@ bool GeoProjectionConverter::get_prj_from_projection(int& len, char** prj, bool 
       {
         if (elevation2meter == 1.0)
         {
-          n += sprintf(&string[n], "UNIT[\"metre\",1.0]");
+          n += sprintf(&string[n], "UNIT[\"metre\",1.0],");
         }
         else if (elevation2meter == 0.3048)
         {
-          n += sprintf(&string[n], "UNIT[\"foot\",0.3048]");
+          n += sprintf(&string[n], "UNIT[\"foot\",0.3048],");
         }
         else
         {
@@ -2885,11 +2934,11 @@ bool GeoProjectionConverter::get_prj_from_projection(int& len, char** prj, bool 
       {
         if (meter2elevation == 1.0)
         {
-          n += sprintf(&string[n], "UNIT[\"metre\",1.0]");
+          n += sprintf(&string[n], "UNIT[\"metre\",1.0],");
         }
         else if (meter2elevation == 0.3048)
         {
-          n += sprintf(&string[n], "UNIT[\"foot\",0.3048]");
+          n += sprintf(&string[n], "UNIT[\"foot\",0.3048],");
         }
         else
         {
@@ -2907,6 +2956,10 @@ bool GeoProjectionConverter::get_prj_from_projection(int& len, char** prj, bool 
       else if (vertical_geokey == GEO_VERTICAL_CGVD2013)
       {
         n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"6647\"]]");
+      }
+      else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
+      {
+        n += sprintf(&string[n], "AXIS[\"Gravity-related height\",UP],AUTHORITY[\"EPSG\",\"5621\"]]");
       }
       else if (vertical_geokey == GEO_VERTICAL_CGVD28)
       {
@@ -4652,7 +4705,7 @@ void GeoProjectionConverter::set_oblique_stereographic_projection(double falseEa
   os->os_lat_origin_radian = deg2rad*os->os_lat_origin_degree;
   os->os_long_meridian_radian = deg2rad*os->os_long_meridian_degree;
   set_projection(os, source);
-//  compute_os_parameters(source);
+  compute_os_parameters(source);
   if (description)
   {
     sprintf(description, "false east/north: %g/%g [m], origin lat/meridian long: %g/%g, scale: %g", os->os_false_easting_meter, os->os_false_northing_meter, os->os_lat_origin_degree, os->os_long_meridian_degree, os->os_scale_factor);
@@ -5389,6 +5442,31 @@ void GeoProjectionConverter::compute_aeac_parameters(bool source)
     aeac->aeac_rho0 = 0;
   else
     aeac->aeac_rho0 = aeac->aeac_Albers_a_OVER_n * sqrt(aeac->aeac_C - nq0);
+}
+
+static double srat(double esinp, double exp)
+{
+  return pow((1.0 - esinp) / (1.0 + esinp), exp);
+}
+
+void GeoProjectionConverter::compute_os_parameters(bool source)
+{
+  GeoProjectionParametersOS* os = (GeoProjectionParametersOS*)(source ? source_projection : target_projection);
+
+  if (!os || os->type != GEO_PROJECTION_OS) return;
+
+  double sphi = sin(os->os_lat_origin_radian);
+  double cphi = cos(os->os_lat_origin_radian);
+  cphi *= cphi;
+  
+  os->os_R2 = 2.0 * sqrt(1.0 - ellipsoid->eccentricity_squared) / (1.0 - ellipsoid->eccentricity_squared * sphi * sphi);
+  os->os_C = sqrt(1.0 + ellipsoid->eccentricity_squared * cphi * cphi / (1.0 - ellipsoid->eccentricity_squared));
+  os->os_phic0 = asin(sphi / os->os_C);
+  os->os_sinc0 = sin(os->os_phic0);
+  os->os_cosc0 = cos(os->os_phic0);
+  os->os_ratexp = 0.5 * os->os_C * ellipsoid->eccentricity;
+  os->os_K = tan(0.5 * os->os_phic0 + PI/4) / (pow(tan(0.5 * os->os_lat_origin_radian + PI/4), os->os_C) * srat(ellipsoid->eccentricity * sphi, os->os_ratexp));
+  os->os_gf = os->os_scale_factor * ellipsoid->equatorial_radius;
 }
 
 // converts UTM coords to lat/long.  Equations from USGS Bulletin 1532 
@@ -6156,11 +6234,9 @@ bool GeoProjectionConverter::ECEFtoLL(const double ECEFMeterX, const double ECEF
  */
   ElevationMeter = (r - A*t)*cos( LatDegree ) + (z - B)*sin( LatDegree );
 /*
- *   6.0 compute longitude east of Greenwich
+ *   6.0 compute longitude 
  */
   zlong = atan2( y, x );
-  if( zlong < 0.0 )
-          zlong= zlong + TWO_PI;
 
   LongDegree = zlong;
 /*
@@ -6460,16 +6536,15 @@ bool GeoProjectionConverter::LLtoAEAC(const double LatDegree, const double LongD
   * coordinates, according to the current ellipsoid and Oblique Mercator 
   * projection parameters.
   *
-  *   OMEastingMeter    : input Easting/X in meters 
-  *   OMNorthingMeter   : input Northing/Y in meters
+  *   HOMEastingMeter    : input Easting/X in meters 
+  *   HOMNorthingMeter   : input Northing/Y in meters
   *   LatDegree         : output Latitude in decimal degrees
   *   LongDegree        : output Longitude in decimal degrees
   *
-  * adapted from OBLIQUE MERCATOR code of U.S. Army Topographic Engineering Center
 */
 bool GeoProjectionConverter::HOMtoLL(const double OMEastingMeter, const double OMNorthingMeter, double& LatDegree, double& LongDegree, const GeoProjectionEllipsoid* ellipsoid, const GeoProjectionParametersHOM* om) const
 {
-  return true;
+  return false;
 }
 
 /*
@@ -6480,13 +6555,105 @@ bool GeoProjectionConverter::HOMtoLL(const double OMEastingMeter, const double O
   *
   *   LatDegree         : input Latitude in decimal degrees
   *   LongDegree        : input Longitude in decimal degrees
-  *   OMEastingMeter    : output Easting/X in meters 
-  *   OMNorthingMeter   : output Northing/Y in meters
+  *   HOMEastingMeter    : output Easting/X in meters 
+  *   HOMNorthingMeter   : output Northing/Y in meters
   *
-  * adapted from OBLIQUE MERCATOR code of U.S. Army Topographic Engineering Center
 */
 bool GeoProjectionConverter::LLtoHOM(const double LatDegree, const double LongDegree, double &OMEastingMeter, double &OMNorthingMeter, const GeoProjectionEllipsoid* ellipsoid, const GeoProjectionParametersHOM* om) const
 {
+  return false;
+}
+
+/*
+  * The function OStoLL() converts the Oblique Stereographic projection
+  * (easting and northing) coordinates to Geodetic (latitude and longitude)
+  * coordinates, according to the current ellipsoid and Oblique Stereographic
+  * projection parameters.
+  *
+  *   OSEastingMeter    : input Easting/X in meters 
+  *   OSNorthingMeter   : input Northing/Y in meters
+  *   LatDegree         : output Latitude in decimal degrees
+  *   LongDegree        : output Longitude in decimal degrees
+  *
+  * formulas from "Oblique Stereographic Alternative" by Gerald Evenden and Rueben Schulz
+*/
+bool GeoProjectionConverter::OStoLL(const double OSEastingMeter, const double OSNorthingMeter, double& LatDegree,  double& LongDegree, const GeoProjectionEllipsoid* ellipsoid, const GeoProjectionParametersOS* os) const
+{
+  double x = (OSEastingMeter - os->os_false_easting_meter) / os->os_gf;
+  double y = (OSNorthingMeter - os->os_false_northing_meter) / os->os_gf;
+
+  double rho = hypot(x, y);
+  if (fabs(rho) < 1.0e-6)
+  {
+    x = 0.0;
+    y = os->os_phic0;
+  }
+  else
+  {
+    double ce = 2.0 * atan2(rho, os->os_R2);
+    double sinc = sin(ce);
+    double cosc = cos(ce);
+    x = atan2(x * sinc, rho * (os->os_cosc0 * cosc) - (y * os->os_sinc0 * sinc));
+    y = (cosc * os->os_sinc0) + (y * sinc * os->os_cosc0 / rho);
+    if (fabs(y) >= 1.0)
+    {
+      y = (y < 0.0) ? -PI/2.0 : PI/2.0;
+    }
+    else
+    {
+      y = asin(y);
+    }
+  }
+  x /= os->os_C;
+  double num = pow(tan(0.5 * y + PI/4)/os->os_K, 1.0/os->os_C);
+  for (int i=15;;)
+  {
+    double phi = 2.0 * atan(num * srat(ellipsoid->eccentricity * sin(y), -0.5 * ellipsoid->eccentricity)) - PI/2;
+    if (fabs(phi - y) < 1.0e-14)
+    {
+      break;
+    }
+    y = phi;
+    if (--i < 0)
+    {
+      return false;
+    }
+  }
+
+  LatDegree = rad2deg*y;
+  LongDegree = rad2deg*(x + os->os_long_meridian_radian);
+  return true;
+}
+
+/*
+  * The function LLtoOS() converts Geodetic (latitude and longitude)
+  * coordinates to the Oblique Stereographic projection (easting and
+  * northing) coordinates, according to the current ellipsoid and
+  * Oblique Stereographic projection parameters. 
+  *
+  *   LatDegree         : input Latitude in decimal degrees
+  *   LongDegree        : input Longitude in decimal degrees
+  *   OSEastingMeter    : output Easting/X in meters 
+  *   OSNorthingMeter   : output Northing/Y in meters
+  *
+  * formulas from "Oblique Stereographic Alternative" by Gerald Evenden and Rueben Schulz
+*/
+bool GeoProjectionConverter::LLtoOS(const double LatDegree, const double LongDegree, double& OSEastingMeter,  double& OSNorthingMeter, const GeoProjectionEllipsoid* ellipsoid, const GeoProjectionParametersOS* os) const
+{
+  double y = LatDegree*deg2rad;
+  double x = (LongDegree - os->os_long_meridian_degree)*deg2rad;
+
+  y = 2.0 * atan(os->os_K * pow(tan(0.5 * y + PI/4), os->os_C) * srat(ellipsoid->eccentricity * sin(y), os->os_ratexp)) - PI/2;
+  x *= os->os_C;
+  double sinc = sin(y);
+  double cosc = cos(y);
+  double cosl = cos(x);
+  double k = os->os_R2 / (1.0 + os->os_sinc0 * sinc + os->os_cosc0 * cosc * cosl);
+  x = k * cosc * sin(x);
+  y = k * (os->os_cosc0 * sinc - os->os_sinc0 * cosc * cosl);
+
+  OSEastingMeter = x * os->os_gf + os->os_false_easting_meter;
+  OSNorthingMeter = y * os->os_gf + os->os_false_northing_meter;
   return true;
 }
 
@@ -6700,6 +6867,11 @@ bool GeoProjectionConverter::parse(int argc, char* argv[])
       else if (strcmp(argv[i],"-vertical_cgvd2013") == 0)
       {
         vertical_geokey = GEO_VERTICAL_CGVD2013;
+        *argv[i]='\0';
+      }
+      else if (strcmp(argv[i],"-vertical_evrf2007") == 0)
+      {
+        vertical_geokey = GEO_VERTICAL_EVRF2007;
         *argv[i]='\0';
       }
       else if (strcmp(argv[i],"-vertical_cgvd28") == 0)
@@ -7122,6 +7294,10 @@ int GeoProjectionConverter::unparse(char* string) const
     {
       n += sprintf(&string[n], "-vertical_cgvd2013 ");
     }
+    else if (vertical_geokey == GEO_VERTICAL_EVRF2007)
+    {
+      n += sprintf(&string[n], "-vertical_evrf2007 ");
+    }
     else if (vertical_geokey == GEO_VERTICAL_CGVD28)
     {
       n += sprintf(&string[n], "-vertical_cgvd28 ");
@@ -7388,6 +7564,9 @@ bool GeoProjectionConverter::to_lon_lat_ele(const double* point, double& longitu
     case GEO_PROJECTION_AEAC:
       AEACtoLL(coordinates2meter*point[0], coordinates2meter*point[1], latitude, longitude, ellipsoid, (const GeoProjectionParametersAEAC*)source_projection);
       break;
+    case GEO_PROJECTION_OS:
+      OStoLL(coordinates2meter*point[0], coordinates2meter*point[1], latitude, longitude, ellipsoid, (const GeoProjectionParametersOS*)source_projection);
+      break;
     }
     elevation_in_meter = elevation2meter*point[2] + elevation_offset_in_meter;
     return true;
@@ -7435,6 +7614,9 @@ bool GeoProjectionConverter::to_target(const double* point,  double &x, double &
     case GEO_PROJECTION_AEAC:
       AEACtoLL(coordinates2meter*point[0], coordinates2meter*point[1], latitude, longitude, ellipsoid, (const GeoProjectionParametersAEAC*)source_projection);
       break;
+    case GEO_PROJECTION_OS:
+      OStoLL(coordinates2meter*point[0], coordinates2meter*point[1], latitude, longitude, ellipsoid, (const GeoProjectionParametersOS*)source_projection);
+      break;
     }
 
     switch (target_projection->type)
@@ -7471,6 +7653,11 @@ bool GeoProjectionConverter::to_target(const double* point,  double &x, double &
       break;
     case GEO_PROJECTION_AEAC:
       LLtoAEAC(latitude, longitude, x, y, ellipsoid, (const GeoProjectionParametersAEAC*)target_projection);
+      x = meter2coordinates * x;
+      y = meter2coordinates * y;
+      break;
+    case GEO_PROJECTION_OS:
+      LLtoOS(latitude, longitude, x, y, ellipsoid, (const GeoProjectionParametersOS*)target_projection);
       x = meter2coordinates * x;
       y = meter2coordinates * y;
       break;

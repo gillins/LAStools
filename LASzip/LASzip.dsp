@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LASZIPDLL_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /I "inc" /I "dll" /I "stl" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LASZIPDLL_EXPORTS" /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /I "inc" /I "dll" /I "stl" /D "WIN32" /D "DUNORDERED" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LASZIPDLL_EXPORTS" /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
@@ -118,6 +118,15 @@ SOURCE=.\src\integercompressor.cpp
 # Begin Source File
 
 SOURCE=.\src\lasindex.cpp
+
+!IF  "$(CFG)" == "LASzip - Win32 Release"
+
+# SUBTRACT CPP /D "DUNORDERED"
+
+!ELSEIF  "$(CFG)" == "LASzip - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -141,6 +150,10 @@ SOURCE=.\src\lasreaditemcompressed_v3.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\lasreaditemcompressed_v4.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\lasreadpoint.cpp
 # End Source File
 # Begin Source File
@@ -157,6 +170,10 @@ SOURCE=.\src\laswriteitemcompressed_v3.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\laswriteitemcompressed_v4.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\laswritepoint.cpp
 # End Source File
 # Begin Source File
@@ -166,6 +183,7 @@ SOURCE=.\src\laszip.cpp
 # Begin Source File
 
 SOURCE=.\src\laszip_dll.cpp
+# SUBTRACT CPP /I "stl"
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -265,6 +283,10 @@ SOURCE=.\src\lasreaditemcompressed_v3.hpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\lasreaditemcompressed_v4.hpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\lasreaditemraw.hpp
 # End Source File
 # Begin Source File
@@ -286,6 +308,10 @@ SOURCE=.\src\laswriteitemcompressed_v2.hpp
 # Begin Source File
 
 SOURCE=.\src\laswriteitemcompressed_v3.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\laswriteitemcompressed_v4.hpp
 # End Source File
 # Begin Source File
 

@@ -13,7 +13,7 @@
 
   COPYRIGHT:
 
-    (c) 2007-2013, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2007-2017, martin isenburg, rapidlasso - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -703,6 +703,39 @@ void LASbin::add(F64 item, F64 value)
   }
 }
 
+static void lidardouble2string(CHAR* string, F64 value)
+{
+  int len;
+  len = sprintf(string, "%.15f", value) - 1;
+  while (string[len] == '0') len--;
+  if (string[len] != '.') len++;
+  string[len] = '\0';
+}
+
+static void lidardouble2string(CHAR* string, F64 value, F32 precision)
+{
+  if (precision == 0.1f)
+    sprintf(string, "%.1f", value);
+  else if (precision == 0.01f)
+    sprintf(string, "%.2f", value);
+  else if (precision == 0.001f)
+    sprintf(string, "%.3f", value);
+  else if (precision == 0.0001f)
+    sprintf(string, "%.4f", value);
+  else if (precision == 0.00001f)
+    sprintf(string, "%.5f", value);
+  else if (precision == 0.000001f)
+    sprintf(string, "%.6f", value);
+  else if (precision == 0.0000001f)
+    sprintf(string, "%.7f", value);
+  else if (precision == 0.00000001f)
+    sprintf(string, "%.8f", value);
+  else if (precision == 0.000000001f)
+    sprintf(string, "%.9f", value);
+  else
+    lidardouble2string(string, value);
+}
+
 void LASbin::report(FILE* file, const CHAR* name, const CHAR* name_avg) const
 {
   I32 i, bin;
@@ -718,6 +751,8 @@ void LASbin::report(FILE* file, const CHAR* name, const CHAR* name_avg) const
     else
       fprintf(file, "%s histogram with bin size %g\012", name, 1.0f/one_over_step);
   }
+  CHAR temp1[64];
+  CHAR temp2[64];
   if (size_neg)
   {
     for (i = size_neg-1; i >= 0; i--)
@@ -734,10 +769,12 @@ void LASbin::report(FILE* file, const CHAR* name, const CHAR* name_avg) const
         }
         else
         {
+          lidardouble2string(temp1, ((F64)bin)/one_over_step, step);
+          lidardouble2string(temp2, ((F64)bin+1)/one_over_step, step);
           if (values_neg)
-            fprintf(file, "  bin [%g,%g) has average %g (of %d)\012", ((F32)bin)/one_over_step, ((F32)(bin+1))/one_over_step, values_neg[i]/bins_neg[i], bins_neg[i]);
+            fprintf(file, "  bin [%s,%s) has average %g (of %d)\012", temp1, temp2, values_neg[i]/bins_neg[i], bins_neg[i]);
           else
-            fprintf(file, "  bin [%g,%g) has %d\012", ((F32)bin)/one_over_step, ((F32)(bin+1))/one_over_step, bins_neg[i]);
+            fprintf(file, "  bin [%s,%s) has %d\012", temp1, temp2, bins_neg[i]);
         }
       }
     }
@@ -758,26 +795,29 @@ void LASbin::report(FILE* file, const CHAR* name, const CHAR* name_avg) const
         }
         else
         {
+          lidardouble2string(temp1, ((F64)bin)/one_over_step, step);
+          lidardouble2string(temp2, ((F64)bin+1)/one_over_step, step);
           if (values_pos)
-            fprintf(file, "  bin [%g,%g) average has %g (of %d)\012", ((F32)bin)/one_over_step, ((F32)(bin+1))/one_over_step, values_pos[i]/bins_pos[i], bins_pos[i]);
+            fprintf(file, "  bin [%s,%s) average has %g (of %d)\012", temp1, temp2, values_pos[i]/bins_pos[i], bins_pos[i]);
           else
-            fprintf(file, "  bin [%g,%g) has %d\012", ((F32)bin)/one_over_step, ((F32)(bin+1))/one_over_step, bins_pos[i]);
+            fprintf(file, "  bin [%s,%s) has %d\012", temp1, temp2, bins_pos[i]);
         }
       }
     }
   }
   if (count)
   {
+    lidardouble2string(temp1, total/count, step);
 #ifdef _WIN32
     if (name)
-      fprintf(file, "  average %s %g for %I64d element(s)\012", name, total/count, count);
+      fprintf(file, "  average %s %s for %I64d element(s)\012", name, temp1, count);
     else
-      fprintf(file, "  average %g for %I64d element(s)\012", total/count, count);
+      fprintf(file, "  average %s for %I64d element(s)\012", temp1, count);
 #else
     if (name)
-      fprintf(file, "  average %s %g for %lld element(s)\012", name, total/count, count);
+      fprintf(file, "  average %s %s for %lld element(s)\012", name, temp1, count);
     else
-      fprintf(file, "  average %g for %lld element(s)\012", total/count, count);
+      fprintf(file, "  average %s for %lld element(s)\012", temp1, count);
 #endif
   }
 }
@@ -824,6 +864,7 @@ LAShistogram::LAShistogram()
   user_data_bin = 0;
   point_source_id_bin = 0;
   gps_time_bin = 0;
+  scanner_channel_bin = 0;
   R_bin = 0;
   G_bin = 0;
   B_bin = 0;
@@ -864,6 +905,7 @@ LAShistogram::~LAShistogram()
   if (user_data_bin) delete user_data_bin;
   if (point_source_id_bin) delete point_source_id_bin;
   if (gps_time_bin) delete gps_time_bin;
+  if (scanner_channel_bin) delete scanner_channel_bin;
   if (R_bin) delete R_bin;
   if (G_bin) delete G_bin;
   if (B_bin) delete B_bin;
@@ -941,6 +983,7 @@ I32 LAShistogram::unparse(CHAR* string) const
   if (user_data_bin) n += sprintf(&string[n], "-histo user_data %g ", user_data_bin->get_step());
   if (point_source_id_bin) n += sprintf(&string[n], "-histo point_source %g ", point_source_id_bin->get_step());
   if (gps_time_bin) n += sprintf(&string[n], "-histo gps_time %g ", gps_time_bin->get_step());
+  if (scanner_channel_bin) n += sprintf(&string[n], "-histo scanner_channel %g ", scanner_channel_bin->get_step());
   if (R_bin) n += sprintf(&string[n], "-histo R %g ", R_bin->get_step());
   if (G_bin) n += sprintf(&string[n], "-histo G %g ", G_bin->get_step());
   if (B_bin) n += sprintf(&string[n], "-histo B %g ", B_bin->get_step());
@@ -989,6 +1032,8 @@ BOOL LAShistogram::histo(const CHAR* name, F32 step)
     point_source_id_bin = new LASbin(step);
   else if (strstr(name, "gps_time") != 0)
     gps_time_bin = new LASbin(step);
+  else if (strstr(name, "scanner_channel") != 0)
+    scanner_channel_bin = new LASbin(step);
   else if (strcmp(name, "R") == 0)
     R_bin = new LASbin(step);
   else if (strcmp(name, "G") == 0)
@@ -1092,9 +1137,10 @@ void LAShistogram::add(const LASpoint* point)
   }
   if (return_number_bin) return_number_bin->add(point->get_return_number());
   if (number_of_returns_bin) number_of_returns_bin->add(point->get_number_of_returns());
-  if (user_data_bin) user_data_bin->add(point->user_data);
-  if (point_source_id_bin) point_source_id_bin->add(point->point_source_ID);
-  if (gps_time_bin) gps_time_bin->add(point->gps_time);
+  if (user_data_bin) user_data_bin->add(point->get_user_data());
+  if (point_source_id_bin) point_source_id_bin->add(point->get_point_source_ID());
+  if (gps_time_bin) gps_time_bin->add(point->get_gps_time());
+  if (scanner_channel_bin) scanner_channel_bin->add(point->get_extended_scanner_channel());
   if (R_bin) R_bin->add(point->rgb[0]);
   if (G_bin) G_bin->add(point->rgb[1]);
   if (B_bin) B_bin->add(point->rgb[2]);
@@ -1152,6 +1198,7 @@ void LAShistogram::report(FILE* file) const
   if (user_data_bin) user_data_bin->report(file, "user data");
   if (point_source_id_bin) point_source_id_bin->report(file, "point source id");
   if (gps_time_bin) gps_time_bin->report(file, "gps_time");
+  if (scanner_channel_bin) scanner_channel_bin->report(file, "scanner channel");
   if (R_bin) R_bin->report(file, "color R channel");
   if (G_bin) G_bin->report(file, "color G channel");
   if (B_bin) B_bin->report(file, "color B channel");
@@ -1192,6 +1239,7 @@ void LAShistogram::reset()
   if (user_data_bin) user_data_bin->reset();
   if (point_source_id_bin) point_source_id_bin->reset();
   if (gps_time_bin) gps_time_bin->reset();
+  if (scanner_channel_bin) scanner_channel_bin->reset();
   if (R_bin) R_bin->reset();
   if (G_bin) G_bin->reset();
   if (B_bin) B_bin->reset();

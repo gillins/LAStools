@@ -590,7 +590,6 @@ public:
     if (point->get_withheld_flag() || point->get_keypoint_flag() || point->get_synthetic_flag())
     {
       point->set_extended_classification((point->get_withheld_flag() ? 128 : 0) | (point->get_keypoint_flag() ? 64 : 0) | (point->get_synthetic_flag() ? 32 : 0) | point->get_classification());
-      point->set_classification(0);
       point->set_synthetic_flag(0);
       point->set_keypoint_flag(0);
       point->set_withheld_flag(0);
@@ -826,6 +825,19 @@ public:
   LASoperationSetUserData(U8 user_data) { this->user_data = user_data; };
 private:
   U8 user_data;
+};
+
+class LASoperationScaleUserData : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "scale_user_data"; };
+  inline int get_command(CHAR* string) const { return sprintf(string, "-%s %g ", name(), scale); };
+  inline void transform(LASpoint* point) {
+    point->set_user_data(U8_CLAMP(scale*point->get_user_data()));
+  };
+  LASoperationScaleUserData(F32 scale) { this->scale = scale; };
+private:
+  F32 scale;
 };
 
 class LASoperationChangeUserDataFromTo : public LASoperation
@@ -1106,6 +1118,14 @@ public:
   inline void transform(LASpoint* point) { I16 temp = point->get_G(); point->set_G(point->get_B()); point->set_B(temp); };
 };
 
+class LASoperationCopyRGBintoIntensity : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_RGB_into_intensity"; };
+  inline int get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
+  inline void transform(LASpoint* point) { point->set_intensity(U16_QUANTIZE((0.2989*point->get_R())+(0.5870*point->get_G())+(0.1140*point->get_B()))); };
+};
+
 class LASoperationCopyRintoIntensity : public LASoperation
 {
 public:
@@ -1160,6 +1180,14 @@ public:
   inline const CHAR* name() const { return "copy_NIR_into_intensity"; };
   inline int get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
   inline void transform(LASpoint* point) { point->set_intensity(point->get_NIR()); };
+};
+
+class LASoperationCopyIntensityIntoNIR : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_intensity_into_NIR"; };
+  inline int get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
+  inline void transform(LASpoint* point) { point->set_NIR(point->get_intensity()); };
 };
 
 class LASoperationFlipWaveformDirection : public LASoperation
@@ -1276,6 +1304,7 @@ void LAStransform::usage() const
   fprintf(stderr,"  -translate_then_scale_intensity 0.5 3.1\n");
   fprintf(stderr,"  -clamp_intensity 0 255\n");
   fprintf(stderr,"  -clamp_intensity_above 255\n");
+  fprintf(stderr,"  -copy_RGB_into_intensity\n");
   fprintf(stderr,"  -copy_NIR_into_intensity\n");
   fprintf(stderr,"Transform scan_angle.\n");
   fprintf(stderr,"  -scale_scan_angle 1.944445\n");
@@ -1311,6 +1340,7 @@ void LAStransform::usage() const
   fprintf(stderr,"  -copy_user_data_into_scanner_channel\n");
   fprintf(stderr,"Modify the user data.\n");
   fprintf(stderr,"  -set_user_data 0\n");
+  fprintf(stderr,"  -scale_user_data 1.5\n");
   fprintf(stderr,"  -change_user_data_from_to 23 26\n");
   fprintf(stderr,"  -change_user_data_from_to 23 26\n");
   fprintf(stderr,"  -copy_attribute_into_user_data 1\n");
@@ -1338,6 +1368,7 @@ void LAStransform::usage() const
   fprintf(stderr,"  -copy_R_into_NIR -copy_R_into_intensity\n");
   fprintf(stderr,"  -copy_G_into_NIR -copy_G_into_intensity\n");
   fprintf(stderr,"  -copy_B_into_NIR -copy_B_into_intensity\n");
+  fprintf(stderr,"  -copy_intensity_into_NIR\n");
 }
 
 BOOL LAStransform::parse(int argc, char* argv[])
@@ -1689,9 +1720,14 @@ BOOL LAStransform::parse(int argc, char* argv[])
         add_operation(new LASoperationCopyScannerChannelIntoPointSource());
         *argv[i]='\0'; 
       }
-      else if (strncmp(argv[i],"-copy_R_", 8) == 0)
+      else if (strncmp(argv[i],"-copy_R", 7) == 0)
       {
-        if (strcmp(argv[i],"-copy_R_into_intensity") == 0)
+        if (strcmp(argv[i],"-copy_RGB_into_intensity") == 0)
+        {
+          add_operation(new LASoperationCopyRGBintoIntensity());
+          *argv[i]='\0';
+        }
+        else if (strcmp(argv[i],"-copy_R_into_intensity") == 0)
         {
           add_operation(new LASoperationCopyRintoIntensity());
           *argv[i]='\0'; 
@@ -1733,12 +1769,20 @@ BOOL LAStransform::parse(int argc, char* argv[])
         add_operation(new LASoperationCopyNIRintoIntensity());
         *argv[i]='\0'; 
       }
-      else if (strcmp(argv[i],"-copy_intensity_into_z") == 0)
+      else if (strncmp(argv[i],"-copy_intensity_", 16) == 0)
       {
-        change_coordinates = TRUE;
-        add_operation(new LASoperationCopyIntensityIntoZ());
-        *argv[i]='\0'; 
-      } 
+        if (strcmp(argv[i],"-copy_intensity_into_z") == 0)
+        {
+          change_coordinates = TRUE;
+          add_operation(new LASoperationCopyIntensityIntoZ());
+          *argv[i]='\0'; 
+        } 
+        else if (strcmp(argv[i],"-copy_intensity_into_NIR") == 0)
+        {
+          add_operation(new LASoperationCopyIntensityIntoNIR());
+          *argv[i]='\0'; 
+        }
+      }
       else if (strcmp(argv[i],"-copy_classification_into_user_data") == 0)
       {
         add_operation(new LASoperationCopyClassificationIntoUserData());
@@ -2134,6 +2178,16 @@ BOOL LAStransform::parse(int argc, char* argv[])
         }
         add_operation(new LASoperationScaleRGB((F32)atof(argv[i+1]), (F32)atof(argv[i+2]), (F32)atof(argv[i+3])));
         *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; *argv[i+3]='\0'; i+=3; 
+      }
+      else if (strcmp(argv[i],"-scale_user_data") == 0)
+      {
+        if ((i+1) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale\n", argv[i]);
+          return FALSE;
+        }
+        add_operation(new LASoperationScaleUserData((F32)atof(argv[i+1])));
+        *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
       }
       else if (strcmp(argv[i],"-scale_RGB_down") == 0 || strcmp(argv[i],"-scale_rgb_down") == 0)
       {

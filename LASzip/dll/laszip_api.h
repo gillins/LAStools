@@ -24,8 +24,13 @@
 
   CHANGE HISTORY:
 
+    22 August 2017 -- Add version info.
+    4 August 2017 -- 'laszip_set_point_type_and_size()' as minimal setup for ostream writer
+    3 August 2017 -- new 'laszip_create_laszip_vlr()' gets VLR as C++ std::vector
+    29 July 2017 -- integrating minimal stream-based reading/writing into branch
+    20 July 2017 -- Andrew Bell adds support for stream-based reading/writing.
     28 May 2017 -- support for "LAS 1.4 selective decompression" added into DLL API
-    25 April 2017 -- adding initial support for new "native LAS 1.4 extension" 
+    25 April 2017 -- adding initial support for new "native LAS 1.4 extension"
     8 January 2017 -- name change from 'laszip_dll.h' and integration Hobu's changes for Unix
     7 January 2017 -- set reserved field in LASzip VLR from 0xAABB to 0x0
     7 January 2017 -- make scan angle quantization in compatibility mode consistent with LIB
@@ -46,6 +51,10 @@
 
 #ifndef LASZIP_API_H
 #define LASZIP_API_H
+
+#ifdef LASZIP_API_VERSION
+#include <laszip/laszip_api_version.h>
+#endif
 
 #ifdef _WIN32
 #   ifdef LASZIP_DYN_LINK
@@ -326,6 +335,14 @@ laszip_set_header(
 
 /*---------------------------------------------------------------------------*/
 LASZIP_API laszip_I32
+laszip_set_point_type_and_size(
+    laszip_POINTER                     pointer
+    , laszip_U8                        point_type
+    , laszip_U16                       point_size
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
 laszip_check_for_integer_overflow(
     laszip_POINTER                     pointer
 );
@@ -563,7 +580,42 @@ laszip_unload_dll
 );
 
 #ifdef __cplusplus
-}
+} // extern "C"
+
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+#include <fstream.h>
+#else
+#include <istream>
+#include <fstream>
+using namespace std;
 #endif
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_open_reader_stream(
+    laszip_POINTER                     pointer
+    , istream&                         stream
+    , laszip_BOOL*                     is_compressed
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_open_writer_stream(
+    laszip_POINTER                     pointer
+    , ostream&                         stream
+    , laszip_BOOL                      compress
+    , laszip_BOOL                      do_not_write_header
+);
+
+/*---------------------------------------------------------------------------*/
+// make LASzip VLR for point type and point size already specified earlier
+LASZIP_API laszip_I32
+laszip_create_laszip_vlr(
+    laszip_POINTER                     pointer
+    , laszip_U8**                      vlr
+    , laszip_U32*                      vlr_size
+);
+
+#endif  // __cplusplus
 
 #endif /* LASZIP_API_H */
