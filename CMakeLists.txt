@@ -33,10 +33,12 @@ set (LAZ_SRC LASzip/src/laszip.cpp
     LASzip/src/lasreaditemcompressed_v1.cpp 
     LASzip/src/lasreaditemcompressed_v2.cpp
     LASzip/src/lasreaditemcompressed_v3.cpp
+    LASzip/src/lasreaditemcompressed_v4.cpp
     LASzip/src/laswritepoint.cpp  
     LASzip/src/laswriteitemcompressed_v1.cpp 
     LASzip/src/laswriteitemcompressed_v2.cpp 
     LASzip/src/laswriteitemcompressed_v3.cpp 
+    LASzip/src/laswriteitemcompressed_v4.cpp
     LASzip/src/integercompressor.cpp
     LASzip/src/arithmeticdecoder.cpp 
     LASzip/src/arithmeticencoder.cpp 
@@ -55,6 +57,7 @@ add_definitions(-D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
 add_definitions(-DNDEBUG)
 if( NOT MSVC)
     add_definitions(-DUNORDERED)
+    add_definitions(-std=c++11)
 endif()
 
 add_executable (laszip src/laszip.cpp src/geoprojectionconverter.cpp)
