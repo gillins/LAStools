@@ -58,6 +58,7 @@ add_definitions(-DNDEBUG)
 if( NOT MSVC OR MSVC_VERSION GREATER 1700)
     # gcc etc or later versions of MSVC support unordered_map
     add_definitions(-DUNORDERED)
+    add_definitions(-DHAVE_UNORDERED_MAP) # needed for older clang for some reason
 	if( NOT MSVC )
 		# gcc etc need this to enable unordered_map
 		add_definitions(-std=c++11)
