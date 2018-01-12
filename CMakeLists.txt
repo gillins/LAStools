@@ -49,15 +49,22 @@ set (LAZ_SRC LASzip/src/laszip.cpp
 
 add_library (las SHARED ${LAS_SRC} ${LAZ_SRC})
 target_include_directories (las PUBLIC LASlib/inc LASzip/src)
-# the LASLIB_DLL macro doesn't actually export exverything required
+# the LASLIB_DLL macro doesn't actually export everything required
 set_target_properties(las PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
 add_definitions(-DNDEBUG)
-if( NOT MSVC)
+if( NOT MSVC OR MSVC_VERSION GREATER 1700)
+    # gcc etc or later versions of MSVC support unordered_map
     add_definitions(-DUNORDERED)
-    add_definitions(-std=c++11)
+	if( NOT MSVC )
+		# gcc etc need this to enable unordered_map
+		add_definitions(-std=c++11)
+    endif()
+	message(STATUS "Using unordered_map")
+else()
+	message(STATUS "NOT Using unordered_map")
 endif()
 
 add_executable (laszip src/laszip.cpp src/geoprojectionconverter.cpp)

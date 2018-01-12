@@ -68,9 +68,10 @@ using namespace std;
 using namespace stdext; /* For VS 2008 */
 typedef hash_map<I32, LASintervalStartCell*> my_cell_hash;
 #else
-#include <unordered_map>
+#include <hash_map>
 using namespace std;
-typedef unordered_map<I32, LASintervalStartCell*> my_cell_hash;
+using namespace stdext; /* For VS 2008 */
+typedef hash_map<I32, LASintervalStartCell*> my_cell_hash;
 #endif
 
 typedef multimap<U32, LASintervalCell*> my_cell_map;
